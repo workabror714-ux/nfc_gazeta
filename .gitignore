@@ -1,8 +1,25 @@
+@"
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+.env
+media/
+staticfiles/
+
+# Node
 node_modules/
-build/
+.next/
+out/
 dist/
-coverage/
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+
+# System
 .DS_Store
-*.log
-.env*
-!.env.example
+Thumbs.db
+"@ | Set-Content .gitignore
