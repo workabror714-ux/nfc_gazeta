@@ -317,6 +317,14 @@ export function IssueReview({
                     {page.has_text
                       ? `${page.text_length} ta belgi`
                       : "Matn topilmadi"}
+                  
+                    {" · "}
+                  
+                    {page.image_count} ta rasm
+                  
+                    {" · "}
+                  
+                    {page.text_block_count} ta blok
                   </p>
                 </div>
               </Link>

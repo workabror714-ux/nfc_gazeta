@@ -73,6 +73,17 @@ def article_image_upload_path(instance, filename: str) -> str:
     )
 
 
+def extracted_image_upload_path(instance, filename: str) -> str:
+    extension = Path(filename).suffix.lower() or ".png"
+
+    return (
+        f"newspapers/{instance.page.issue.newspaper.slug}/"
+        f"{instance.page.issue.year}/{instance.page.issue.slug}/"
+        f"pages/page-{instance.page.page_number}/"
+        f"images/block-{instance.block_index}{extension}"
+    )
+
+
 class Newspaper(TimeStampedModel):
     name = models.CharField(
         max_length=150,
@@ -348,6 +359,156 @@ class Page(TimeStampedModel):
         return f"{self.issue} — {self.page_number}-bet"
 
 
+class PageTextBlock(TimeStampedModel):
+    class BlockType(models.TextChoices):
+        TITLE = "TITLE", "Sarlavha"
+        TEXT = "TEXT", "Oddiy matn"
+        CAPTION = "CAPTION", "Rasm izohi"
+        SIDEBAR = "SIDEBAR", "Yon blok"
+        UNKNOWN = "UNKNOWN", "Aniqlanmagan"
+
+    page = models.ForeignKey(
+        Page,
+        on_delete=models.CASCADE,
+        related_name="text_blocks",
+        verbose_name="Gazeta beti",
+    )
+    block_index = models.PositiveIntegerField(
+        verbose_name="Blok indeksi",
+    )
+    block_type = models.CharField(
+        max_length=20,
+        choices=BlockType.choices,
+        default=BlockType.UNKNOWN,
+        verbose_name="Blok turi",
+    )
+    raw_text = models.TextField(
+        verbose_name="Ajratilgan matn",
+    )
+    final_text = models.TextField(
+        blank=True,
+        verbose_name="Yakuniy matn",
+    )
+    x0 = models.FloatField(default=0)
+    y0 = models.FloatField(default=0)
+    x1 = models.FloatField(default=0)
+    y1 = models.FloatField(default=0)
+    font_size = models.FloatField(
+        default=0,
+        verbose_name="Shrift o‘lchami",
+    )
+    font_name = models.CharField(
+        max_length=180,
+        blank=True,
+        verbose_name="Shrift nomi",
+    )
+    is_bold = models.BooleanField(
+        default=False,
+        verbose_name="Qalin matn",
+    )
+    reading_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="O‘qilish tartibi",
+    )
+    is_ignored = models.BooleanField(
+        default=False,
+        verbose_name="E’tiborga olinmasin",
+    )
+
+    class Meta:
+        verbose_name = "Matn bloki"
+        verbose_name_plural = "Matn bloklari"
+        ordering = [
+            "page",
+            "reading_order",
+            "block_index",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page", "block_index"],
+                name="unique_text_block_per_page",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.page.page_number}-bet — "
+            f"{self.block_index}-matn bloki"
+        )
+
+
+class PageImage(TimeStampedModel):
+    page = models.ForeignKey(
+        Page,
+        on_delete=models.CASCADE,
+        related_name="extracted_images",
+        verbose_name="Gazeta beti",
+    )
+    block_index = models.PositiveIntegerField(
+        verbose_name="Blok indeksi",
+    )
+    image = models.ImageField(
+        upload_to=extracted_image_upload_path,
+        verbose_name="Ajratilgan rasm",
+    )
+    caption = models.TextField(
+        blank=True,
+        verbose_name="Rasm izohi",
+    )
+    alt_text = models.CharField(
+        max_length=500,
+        blank=True,
+        verbose_name="Rasm tavsifi",
+    )
+    x0 = models.FloatField(default=0)
+    y0 = models.FloatField(default=0)
+    x1 = models.FloatField(default=0)
+    y1 = models.FloatField(default=0)
+    width = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Rasm eni",
+    )
+    height = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Rasm bo‘yi",
+    )
+    reading_order = models.PositiveIntegerField(
+        default=0,
+        verbose_name="O‘qilish tartibi",
+    )
+    checksum = models.CharField(
+        max_length=64,
+        blank=True,
+        db_index=True,
+        verbose_name="Nazorat summasi",
+    )
+    is_ignored = models.BooleanField(
+        default=False,
+        verbose_name="Ko‘rsatilmasin",
+    )
+
+    class Meta:
+        verbose_name = "Bet rasmi"
+        verbose_name_plural = "Bet rasmlari"
+        ordering = [
+            "page",
+            "reading_order",
+            "block_index",
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["page", "block_index"],
+                name="unique_image_block_per_page",
+            )
+        ]
+
+    def __str__(self) -> str:
+        return (
+            f"{self.page.page_number}-bet — "
+            f"{self.block_index}-rasm"
+        )
+
+
 class Article(TimeStampedModel):
     issue = models.ForeignKey(
         Issue,
@@ -397,6 +558,21 @@ class Article(TimeStampedModel):
         null=True,
         verbose_name="Asosiy rasm",
     )
+    source_blocks = models.ManyToManyField(
+        PageTextBlock,
+        related_name="articles",
+        blank=True,
+        verbose_name="Manba matn bloklari",
+    )
+
+    source_image = models.ForeignKey(
+        PageImage,
+        on_delete=models.SET_NULL,
+        related_name="articles",
+        null=True,
+        blank=True,
+        verbose_name="Manba rasmi",
+    )
     audio = models.FileField(
         upload_to="newspapers/articles/audio/",
         blank=True,
@@ -414,6 +590,12 @@ class Article(TimeStampedModel):
     is_published = models.BooleanField(
         default=False,
         verbose_name="Nashr qilingan",
+    )
+
+    published_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="Nashr qilingan vaqt",
     )
 
     class Meta:

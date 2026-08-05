@@ -11,9 +11,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -180,4 +182,52 @@ MAX_PDF_SIZE_MB = int(
         "MAX_PDF_SIZE_MB",
         "100",
     )
+)
+
+
+OCR_ENABLED = os.getenv(
+    "OCR_ENABLED",
+    "True",
+).lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
+OCR_LANGUAGES = os.getenv(
+    "OCR_LANGUAGES",
+    "uzb+uzb_cyrl+rus+eng",
+)
+
+OCR_DPI = int(
+    os.getenv(
+        "OCR_DPI",
+        "300",
+    )
+)
+
+OCR_MIN_TEXT_LENGTH = int(
+    os.getenv(
+        "OCR_MIN_TEXT_LENGTH",
+        "80",
+    )
+)
+
+ocr_tessdata_value = os.getenv(
+    "OCR_TESSDATA_PATH",
+    "tessdata",
+)
+
+ocr_tessdata_path = Path(
+    ocr_tessdata_value
+)
+
+if not ocr_tessdata_path.is_absolute():
+    ocr_tessdata_path = (
+        BASE_DIR / ocr_tessdata_path
+    )
+
+OCR_TESSDATA_PATH = str(
+    ocr_tessdata_path.resolve()
 )

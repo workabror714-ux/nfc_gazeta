@@ -6,6 +6,8 @@ from .models import (
     Issue,
     Newspaper,
     Page,
+    PageImage,
+    PageTextBlock,
 )
 
 
@@ -123,4 +125,43 @@ class ArticleAdmin(admin.ModelAdmin):
         "title",
         "content",
         "author",
+    )
+
+@admin.register(PageTextBlock)
+class PageTextBlockAdmin(admin.ModelAdmin):
+    list_display = (
+        "page",
+        "block_index",
+        "block_type",
+        "font_size",
+        "is_bold",
+        "is_ignored",
+    )
+    list_filter = (
+        "block_type",
+        "is_bold",
+        "is_ignored",
+    )
+    search_fields = (
+        "raw_text",
+        "final_text",
+    )
+
+
+@admin.register(PageImage)
+class PageImageAdmin(admin.ModelAdmin):
+    list_display = (
+        "page",
+        "block_index",
+        "width",
+        "height",
+        "is_ignored",
+    )
+    list_filter = (
+        "is_ignored",
+    )
+    search_fields = (
+        "caption",
+        "alt_text",
+        "checksum",
     )

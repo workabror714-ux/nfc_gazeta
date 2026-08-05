@@ -4,7 +4,15 @@ from django.conf import settings
 from django.utils.text import slugify
 from rest_framework import serializers
 
-from .models import Issue, Newspaper, Page
+from .models import (
+    Article,
+    Category,
+    Issue,
+    Newspaper,
+    Page,
+    PageImage,
+    PageTextBlock,
+)
 
 
 def generate_unique_slug(
@@ -280,7 +288,87 @@ class IssuePdfUploadSerializer(serializers.Serializer):
             )
 
         return uploaded_file
-    
+
+class PageTextBlockSerializer(
+    serializers.ModelSerializer
+):
+    block_type_display = serializers.CharField(
+        source="get_block_type_display",
+        read_only=True,
+    )
+
+    class Meta:
+        model = PageTextBlock
+        fields = (
+            "id",
+            "block_index",
+            "block_type",
+            "block_type_display",
+            "raw_text",
+            "final_text",
+            "x0",
+            "y0",
+            "x1",
+            "y1",
+            "font_size",
+            "font_name",
+            "is_bold",
+            "reading_order",
+            "is_ignored",
+        )
+        read_only_fields = fields
+
+
+class PageImageSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = PageImage
+        fields = (
+            "id",
+            "page_id",
+            "block_index",
+            "image",
+            "caption",
+            "alt_text",
+            "x0",
+            "y0",
+            "x1",
+            "y1",
+            "width",
+            "height",
+            "reading_order",
+            "checksum",
+            "is_ignored",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class PageImageUpdateSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = PageImage
+        fields = (
+            "caption",
+            "alt_text",
+            "is_ignored",
+        )
+
+    def validate_caption(
+        self,
+        value: str,
+    ) -> str:
+        return value.strip()
+
+    def validate_alt_text(
+        self,
+        value: str,
+    ) -> str:
+        return value.strip()
+
 class PageListSerializer(serializers.ModelSerializer):
     processing_status_display = serializers.CharField(
         source="get_processing_status_display",
@@ -288,6 +376,8 @@ class PageListSerializer(serializers.ModelSerializer):
     )
     has_text = serializers.SerializerMethodField()
     text_length = serializers.SerializerMethodField()
+    image_count = serializers.SerializerMethodField()
+    text_block_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Page
@@ -302,6 +392,8 @@ class PageListSerializer(serializers.ModelSerializer):
             "is_approved",
             "has_text",
             "text_length",
+            "image_count",
+            "text_block_count",
             "created_at",
             "updated_at",
         )
@@ -323,6 +415,22 @@ class PageListSerializer(serializers.ModelSerializer):
 
         return len(text.strip())
 
+    def get_image_count(
+        self,
+        obj: Page,
+    ) -> int:
+        return obj.extracted_images.filter(
+            is_ignored=False
+        ).count()
+
+    def get_text_block_count(
+        self,
+        obj: Page,
+    ) -> int:
+        return obj.text_blocks.filter(
+            is_ignored=False
+        ).count()
+
 
 class PageDetailSerializer(PageListSerializer):
     issue_title = serializers.CharField(
@@ -341,6 +449,16 @@ class PageDetailSerializer(PageListSerializer):
         source="issue.newspaper.name",
         read_only=True,
     )
+    text_blocks = PageTextBlockSerializer(
+        many=True,
+        read_only=True,
+    )
+
+    images = PageImageSerializer(
+        source="extracted_images",
+        many=True,
+        read_only=True,
+    )
 
     class Meta(PageListSerializer.Meta):
         fields = PageListSerializer.Meta.fields + (
@@ -352,6 +470,8 @@ class PageDetailSerializer(PageListSerializer):
             "ocr_text",
             "final_text",
             "audio",
+            "text_blocks",
+            "images",
         )
 
 
@@ -364,3 +484,446 @@ class PageTextUpdateSerializer(serializers.ModelSerializer):
 
     def validate_final_text(self, value: str) -> str:
         return value.replace("\r\n", "\n").strip()
+    
+
+class CategoryOptionSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = Category
+        fields = (
+            "id",
+            "name",
+            "slug",
+        )
+        read_only_fields = fields
+
+
+class ArticleListSerializer(
+    serializers.ModelSerializer
+):
+    category = CategoryOptionSerializer(
+        read_only=True,
+    )
+
+    source_image = PageImageSerializer(
+        read_only=True,
+    )
+
+    page_number = serializers.IntegerField(
+        source="page.page_number",
+        read_only=True,
+        allow_null=True,
+    )
+
+    newspaper_name = serializers.CharField(
+        source="issue.newspaper.name",
+        read_only=True,
+    )
+
+    class Meta:
+        model = Article
+        fields = (
+            "id",
+            "issue_id",
+            "page_id",
+            "page_number",
+            "newspaper_name",
+            "category",
+            "title",
+            "slug",
+            "summary",
+            "author",
+            "image",
+            "source_image",
+            "reading_order",
+            "is_featured",
+            "is_published",
+            "published_at",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
+
+
+class ArticleDetailSerializer(
+    ArticleListSerializer
+):
+    source_blocks = PageTextBlockSerializer(
+        many=True,
+        read_only=True,
+    )
+
+    class Meta(ArticleListSerializer.Meta):
+        fields = (
+            ArticleListSerializer.Meta.fields
+            + (
+                "content",
+                "audio",
+                "source_blocks",
+            )
+        )
+
+
+class ArticleCreateSerializer(
+    serializers.ModelSerializer
+):
+    issue_id = serializers.PrimaryKeyRelatedField(
+        source="issue",
+        queryset=Issue.objects.all(),
+        write_only=True,
+    )
+
+    page_id = serializers.PrimaryKeyRelatedField(
+        source="page",
+        queryset=Page.objects.all(),
+        write_only=True,
+    )
+
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category",
+        queryset=Category.objects.filter(
+            is_active=True
+        ),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    text_block_ids = serializers.PrimaryKeyRelatedField(
+        source="source_blocks",
+        queryset=PageTextBlock.objects.filter(
+            is_ignored=False
+        ),
+        many=True,
+        write_only=True,
+    )
+
+    source_image_id = serializers.PrimaryKeyRelatedField(
+        source="source_image",
+        queryset=PageImage.objects.filter(
+            is_ignored=False
+        ),
+        write_only=True,
+        required=False,
+        allow_null=True,
+    )
+
+    content = serializers.CharField(
+        required=False,
+        allow_blank=True,
+    )
+
+    class Meta:
+        model = Article
+        fields = (
+            "id",
+            "issue_id",
+            "page_id",
+            "category_id",
+            "text_block_ids",
+            "source_image_id",
+            "title",
+            "summary",
+            "content",
+            "author",
+            "slug",
+            "reading_order",
+            "is_featured",
+            "is_published",
+            "created_at",
+        )
+        read_only_fields = (
+            "id",
+            "slug",
+            "reading_order",
+            "is_published",
+            "created_at",
+        )
+
+    def validate_title(
+        self,
+        value: str,
+    ) -> str:
+        normalized_title = " ".join(
+            value.split()
+        )
+
+        if not normalized_title:
+            raise serializers.ValidationError(
+                "Maqola sarlavhasini kiriting."
+            )
+
+        return normalized_title
+
+    def validate(self, attrs):
+        issue = attrs.get(
+            "issue",
+            getattr(
+                self.instance,
+                "issue",
+                None,
+            ),
+        )
+
+        page = attrs.get(
+            "page",
+            getattr(
+                self.instance,
+                "page",
+                None,
+            ),
+        )
+
+        source_blocks = attrs.get(
+            "source_blocks",
+        )
+
+        if source_blocks is None:
+            if self.instance:
+                source_blocks = list(
+                    self.instance
+                    .source_blocks
+                    .all()
+                )
+            else:
+                source_blocks = []
+
+        source_image = attrs.get(
+            "source_image",
+            getattr(
+                self.instance,
+                "source_image",
+                None,
+            ),
+        )
+
+        if not issue or not page:
+            raise serializers.ValidationError(
+                "Gazeta soni va bet tanlanishi kerak."
+            )
+
+        if page.issue_id != issue.id:
+            raise serializers.ValidationError(
+                {
+                    "page_id": (
+                        "Tanlangan bet ushbu "
+                        "gazeta soniga tegishli emas."
+                    )
+                }
+            )
+
+        if not source_blocks:
+            raise serializers.ValidationError(
+                {
+                    "text_block_ids": (
+                        "Kamida bitta matn "
+                        "blokini tanlang."
+                    )
+                }
+            )
+
+        invalid_blocks = [
+            block.id
+            for block in source_blocks
+            if block.page_id != page.id
+        ]
+
+        if invalid_blocks:
+            raise serializers.ValidationError(
+                {
+                    "text_block_ids": (
+                        "Tanlangan matn bloklarining "
+                        "ayrimlari boshqa betga tegishli."
+                    )
+                }
+            )
+
+        if (
+            source_image
+            and source_image.page_id != page.id
+        ):
+            raise serializers.ValidationError(
+                {
+                    "source_image_id": (
+                        "Tanlangan rasm boshqa "
+                        "betga tegishli."
+                    )
+                }
+            )
+
+        return attrs
+
+    def create(self, validated_data):
+        source_blocks = validated_data.pop(
+            "source_blocks"
+        )
+
+        issue = validated_data["issue"]
+        title = validated_data["title"]
+
+        ordered_blocks = sorted(
+            source_blocks,
+            key=lambda block: (
+                block.reading_order,
+                block.block_index,
+            ),
+        )
+
+        if not validated_data.get("content"):
+            content_parts = [
+                (
+                    block.final_text.strip()
+                    or block.raw_text.strip()
+                )
+                for block in ordered_blocks
+                if (
+                    block.final_text.strip()
+                    or block.raw_text.strip()
+                )
+            ]
+
+            validated_data["content"] = (
+                "\n\n".join(content_parts)
+            )
+
+        base_slug = slugify(title) or "maqola"
+        slug_candidate = base_slug
+        counter = 2
+
+        while Article.objects.filter(
+            issue=issue,
+            slug=slug_candidate,
+        ).exists():
+            slug_candidate = (
+                f"{base_slug}-{counter}"
+            )
+            counter += 1
+
+        validated_data["slug"] = slug_candidate
+
+        maximum_order = (
+            issue.articles.order_by(
+                "-reading_order"
+            )
+            .values_list(
+                "reading_order",
+                flat=True,
+            )
+            .first()
+            or 0
+        )
+
+        validated_data["reading_order"] = (
+            maximum_order + 1
+        )
+
+        article = Article.objects.create(
+            **validated_data
+        )
+
+        article.source_blocks.set(
+            ordered_blocks
+        )
+
+        return article
+    
+
+class ArticleUpdateSerializer(
+    serializers.ModelSerializer
+):
+    category_id = serializers.PrimaryKeyRelatedField(
+        source="category",
+        queryset=Category.objects.filter(
+            is_active=True
+        ),
+        required=False,
+        allow_null=True,
+    )
+
+    source_image_id = serializers.PrimaryKeyRelatedField(
+        source="source_image",
+        queryset=PageImage.objects.filter(
+            is_ignored=False
+        ),
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = Article
+        fields = (
+            "category_id",
+            "source_image_id",
+            "title",
+            "summary",
+            "content",
+            "author",
+            "is_featured",
+        )
+
+    def validate_title(
+        self,
+        value: str,
+    ) -> str:
+        normalized_title = " ".join(
+            value.split()
+        )
+
+        if not normalized_title:
+            raise serializers.ValidationError(
+                "Maqola sarlavhasini kiriting."
+            )
+
+        return normalized_title
+
+    def validate_content(
+        self,
+        value: str,
+    ) -> str:
+        return value.replace(
+            "\r\n",
+            "\n",
+        ).strip()
+
+    def validate_summary(
+        self,
+        value: str,
+    ) -> str:
+        return value.strip()
+
+    def validate_author(
+        self,
+        value: str,
+    ) -> str:
+        return " ".join(
+            value.split()
+        )
+
+    def validate(self, attrs):
+        article = self.instance
+
+        if not article:
+            return attrs
+
+        source_image = attrs.get(
+            "source_image",
+            article.source_image,
+        )
+
+        if (
+            source_image
+            and article.page_id
+            and source_image.page_id
+            != article.page_id
+        ):
+            raise serializers.ValidationError(
+                {
+                    "source_image_id": (
+                        "Tanlangan rasm maqola "
+                        "joylashgan betga tegishli emas."
+                    )
+                }
+            )
+
+        return attrs

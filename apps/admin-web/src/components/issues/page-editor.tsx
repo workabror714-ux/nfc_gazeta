@@ -2,15 +2,14 @@
 
 /* eslint-disable @next/next/no-img-element */
 
-import {
-  useEffect,
-  useState,
-} from "react";
 import Link from "next/link";
-
+import { useEffect, useState } from "react";
+import { ArticleComposerPanel } from "@/components/issues/article-composer-panel";
 import { useAuth } from "@/components/auth/auth-provider";
+import { PageImagesPanel } from "@/components/issues/page-images-panel";
 import { getApiErrorMessage } from "@/lib/auth";
 import type {
+  ExtractedPageImage,
   NewspaperPageDetail,
   PageUpdateResponse,
 } from "@/lib/issues";
@@ -20,10 +19,7 @@ interface PageEditorProps {
   pageId: string;
 }
 
-type TextTab =
-  | "final"
-  | "raw"
-  | "ocr";
+type TextTab = "final" | "raw" | "ocr";
 
 export function PageEditor({
   issueId,
@@ -31,44 +27,21 @@ export function PageEditor({
 }: PageEditorProps) {
   const { user } = useAuth();
 
-  const [page, setPage] =
-    useState<NewspaperPageDetail | null>(
-      null,
-    );
-
-  const [finalText, setFinalText] =
-    useState("");
-
-  const [activeTab, setActiveTab] =
-    useState<TextTab>("final");
-
-  const [isLoading, setIsLoading] =
-    useState(true);
-
-  const [isSaving, setIsSaving] =
-    useState(false);
-
-  const [isReviewing, setIsReviewing] =
-    useState(false);
-
-  const [error, setError] =
-    useState("");
-
-  const [success, setSuccess] =
-    useState("");
-
-  const [
-      isRunningOcr,
-      setIsRunningOcr,
-    ] = useState(false);
+  const [page, setPage] = useState<NewspaperPageDetail | null>(null);
+  const [finalText, setFinalText] = useState("");
+  const [activeTab, setActiveTab] = useState<TextTab>("final");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [isRunningOcr, setIsRunningOcr] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
 
   const canEdit =
-    user.role === "SUPER_ADMIN" ||
-    user.role === "EDITOR";
+    user.role === "SUPER_ADMIN" || user.role === "EDITOR";
 
   const canReview =
-    user.role === "SUPER_ADMIN" ||
-    user.role === "REVIEWER";
+    user.role === "SUPER_ADMIN" || user.role === "REVIEWER";
 
   useEffect(() => {
     let isCancelled = false;
@@ -77,9 +50,7 @@ export function PageEditor({
       cache: "no-store",
     })
       .then(async (response) => {
-        const data = await response
-          .json()
-          .catch(() => null);
+        const data = await response.json().catch(() => null);
 
         if (!response.ok) {
           throw new Error(
@@ -99,9 +70,7 @@ export function PageEditor({
 
         setPage(data);
         setFinalText(
-          data.final_text ||
-            data.ocr_text ||
-            data.raw_text,
+          data.final_text || data.ocr_text || data.raw_text,
         );
       })
       .catch((loadError: unknown) => {
@@ -126,6 +95,21 @@ export function PageEditor({
     };
   }, [pageId]);
 
+  function handleImageUpdated(updatedImage: ExtractedPageImage) {
+    setPage((currentPage) => {
+      if (!currentPage) {
+        return currentPage;
+      }
+
+      return {
+        ...currentPage,
+        images: (currentPage.images ?? []).map((image) =>
+          image.id === updatedImage.id ? updatedImage : image,
+        ),
+      };
+    });
+  }
+
   async function saveText() {
     if (!canEdit) {
       return;
@@ -136,40 +120,28 @@ export function PageEditor({
     setSuccess("");
 
     try {
-      const response = await fetch(
-        `/api/pages/${pageId}`,
-        {
-          method: "PATCH",
-          headers: {
-            "Content-Type":
-              "application/json",
-          },
-          body: JSON.stringify({
-            final_text: finalText,
-          }),
+      const response = await fetch(`/api/pages/${pageId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
         },
-      );
+        body: JSON.stringify({
+          final_text: finalText,
+        }),
+      });
 
-      const data = await response
-        .json()
-        .catch(() => null);
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(
-          getApiErrorMessage(
-            data,
-            "Matnni saqlab bo‘lmadi.",
-          ),
+          getApiErrorMessage(data, "Matnni saqlab bo‘lmadi."),
         );
       }
 
-      const result =
-        data as PageUpdateResponse;
+      const result = data as PageUpdateResponse;
 
       setPage(result.page);
-      setFinalText(
-        result.page.final_text,
-      );
+      setFinalText(result.page.final_text);
       setSuccess(result.detail);
     } catch (saveError) {
       setError(
@@ -186,23 +158,18 @@ export function PageEditor({
     if (!canEdit) {
       return;
     }
-  
+
     setIsRunningOcr(true);
     setError("");
     setSuccess("");
-  
+
     try {
-      const response = await fetch(
-        `/api/pages/${pageId}/ocr`,
-        {
-          method: "POST",
-        },
-      );
-  
-      const data = await response
-        .json()
-        .catch(() => null);
-  
+      const response = await fetch(`/api/pages/${pageId}/ocr`, {
+        method: "POST",
+      });
+
+      const data = await response.json().catch(() => null);
+
       if (!response.ok) {
         throw new Error(
           getApiErrorMessage(
@@ -211,36 +178,29 @@ export function PageEditor({
           ),
         );
       }
-  
-      const result =
-        data as PageUpdateResponse;
-  
+
+      const result = data as PageUpdateResponse;
+
       setPage(result.page);
-  
       setFinalText(
-        result.page.final_text
-        || result.page.ocr_text
-        || result.page.raw_text,
+        result.page.final_text ||
+          result.page.ocr_text ||
+          result.page.raw_text,
       );
-  
       setActiveTab("final");
       setSuccess(result.detail);
-  
     } catch (ocrError) {
       setError(
         ocrError instanceof Error
           ? ocrError.message
           : "OCR bajarishda xatolik yuz berdi.",
       );
-  
     } finally {
       setIsRunningOcr(false);
     }
   }
 
-  async function reviewPage(
-    action: "approve" | "reject",
-  ) {
+  async function reviewPage(action: "approve" | "reject") {
     if (!canReview) {
       return;
     }
@@ -257,9 +217,7 @@ export function PageEditor({
         },
       );
 
-      const data = await response
-        .json()
-        .catch(() => null);
+      const data = await response.json().catch(() => null);
 
       if (!response.ok) {
         throw new Error(
@@ -272,12 +230,13 @@ export function PageEditor({
         );
       }
 
-      const result =
-        data as PageUpdateResponse;
+      const result = data as PageUpdateResponse;
 
       setPage(result.page);
       setFinalText(
-        result.page.final_text,
+        result.page.final_text ||
+          result.page.ocr_text ||
+          result.page.raw_text,
       );
       setSuccess(result.detail);
     } catch (reviewError) {
@@ -331,22 +290,20 @@ export function PageEditor({
         ? page.ocr_text
         : finalText;
 
+  const pageImages = page.images ?? [];
+  const textBlocks = page.text_blocks ?? [];
+  const isBusy = isSaving || isReviewing || isRunningOcr;
+
   return (
     <>
       {success ? (
-        <div
-          className="success-message"
-          role="status"
-        >
+        <div className="success-message" role="status">
           {success}
         </div>
       ) : null}
 
       {error ? (
-        <div
-          className="error-message"
-          role="alert"
-        >
+        <div className="error-message" role="alert">
           {error}
         </div>
       ) : null}
@@ -355,12 +312,8 @@ export function PageEditor({
         <article className="content-panel page-preview-panel">
           <div className="panel-heading">
             <div>
-              <h2>
-                {page.page_number}-bet rasmi
-              </h2>
-              <p>
-                Original PDF’dan olingan ko‘rinish
-              </p>
+              <h2>{page.page_number}-bet rasmi</h2>
+              <p>Original PDF’dan olingan ko‘rinish</p>
             </div>
           </div>
 
@@ -382,10 +335,7 @@ export function PageEditor({
           <div className="panel-heading">
             <div>
               <h2>Bet matni</h2>
-              <p>
-                Matnni asl bet bilan solishtirib
-                tekshiring.
-              </p>
+              <p>Matnni asl bet bilan solishtirib tekshiring.</p>
             </div>
 
             <span
@@ -401,10 +351,7 @@ export function PageEditor({
             </span>
           </div>
 
-          <div
-            className="text-editor-tabs"
-            role="tablist"
-          >
+          <div className="text-editor-tabs" role="tablist">
             <button
               type="button"
               className={
@@ -412,9 +359,7 @@ export function PageEditor({
                   ? "text-tab text-tab-active"
                   : "text-tab"
               }
-              onClick={() =>
-                setActiveTab("final")
-              }
+              onClick={() => setActiveTab("final")}
             >
               Yakuniy matn
             </button>
@@ -426,9 +371,7 @@ export function PageEditor({
                   ? "text-tab text-tab-active"
                   : "text-tab"
               }
-              onClick={() =>
-                setActiveTab("raw")
-              }
+              onClick={() => setActiveTab("raw")}
             >
               PDF matni
             </button>
@@ -440,9 +383,7 @@ export function PageEditor({
                   ? "text-tab text-tab-active"
                   : "text-tab"
               }
-              onClick={() =>
-                setActiveTab("ocr")
-              }
+              onClick={() => setActiveTab("ocr")}
             >
               OCR matni
             </button>
@@ -452,42 +393,34 @@ export function PageEditor({
             {activeTab === "final" ? (
               <textarea
                 value={finalText}
-                onChange={(event) =>
-                  setFinalText(
-                    event.target.value,
-                  )
-                }
-                disabled={!canEdit}
+                onChange={(event) => setFinalText(event.target.value)}
+                disabled={!canEdit || isBusy}
                 aria-label="Yakuniy gazeta matni"
               />
             ) : (
-              <pre>
-                {visibleText ||
-                  "Bu manbada matn mavjud emas."}
-              </pre>
+              <pre>{visibleText || "Bu manbada matn mavjud emas."}</pre>
             )}
           </div>
 
           <div className="page-editor-information">
             <span>
-              Belgilar:{" "}
-              <strong>
-                {finalText.length}
-              </strong>
+              Belgilar: <strong>{finalText.length}</strong>
             </span>
 
             <span>
-              Aniqlik:{" "}
-              <strong>
-                {page.extraction_confidence}%
-              </strong>
+              Aniqlik: <strong>{page.extraction_confidence}%</strong>
             </span>
 
             <span>
-              Bet:{" "}
-              <strong>
-                {page.page_number}
-              </strong>
+              Bet: <strong>{page.page_number}</strong>
+            </span>
+
+            <span>
+              Matn bloklari: <strong>{textBlocks.length}</strong>
+            </span>
+
+            <span>
+              Rasmlar: <strong>{pageImages.length}</strong>
             </span>
           </div>
 
@@ -499,11 +432,7 @@ export function PageEditor({
                 onClick={() => {
                   void runOcr();
                 }}
-                disabled={
-                  isSaving
-                  || isReviewing
-                  || isRunningOcr
-                }
+                disabled={isBusy}
               >
                 {isRunningOcr
                   ? "OCR ishlamoqda..."
@@ -512,7 +441,7 @@ export function PageEditor({
                     : "OCR orqali matnni aniqlash"}
               </button>
             ) : null}
-            
+
             {canEdit ? (
               <button
                 type="button"
@@ -520,15 +449,9 @@ export function PageEditor({
                 onClick={() => {
                   void saveText();
                 }}
-                disabled={
-                  isSaving
-                  || isReviewing
-                  || isRunningOcr
-                }
+                disabled={isBusy}
               >
-                {isSaving
-                  ? "Saqlanmoqda..."
-                  : "Matnni saqlash"}
+                {isSaving ? "Saqlanmoqda..." : "Matnni saqlash"}
               </button>
             ) : null}
 
@@ -538,15 +461,9 @@ export function PageEditor({
                   type="button"
                   className="approve-button"
                   onClick={() => {
-                    void reviewPage(
-                      "approve",
-                    );
+                    void reviewPage("approve");
                   }}
-                  disabled={
-                    isSaving
-                    || isReviewing
-                    || isRunningOcr
-                  }
+                  disabled={isBusy}
                 >
                   Betni tasdiqlash
                 </button>
@@ -555,15 +472,9 @@ export function PageEditor({
                   type="button"
                   className="reject-button"
                   onClick={() => {
-                    void reviewPage(
-                      "reject",
-                    );
+                    void reviewPage("reject");
                   }}
-                  disabled={
-                    isSaving
-                    || isReviewing
-                    || isRunningOcr
-                  }
+                  disabled={isBusy}
                 >
                   Qayta tahrirlashga yuborish
                 </button>
@@ -572,6 +483,17 @@ export function PageEditor({
           </div>
         </article>
       </section>
+
+      <PageImagesPanel
+        images={pageImages}
+        canEdit={canEdit}
+        onImageUpdated={handleImageUpdated}
+      />
+
+      <ArticleComposerPanel
+        page={page}
+        canEdit={canEdit}
+      />
     </>
   );
 }

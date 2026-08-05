@@ -24,4 +24,7 @@ npm-debug.log*
 Thumbs.db
 "@ | Set-Content .gitignore
 
+# OCR language models
+backend/tessdata/*.traineddata
+
 

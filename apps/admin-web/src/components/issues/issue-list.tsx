@@ -180,6 +180,9 @@ export function IssueList() {
           ocr_pages?: number;
           empty_text_pages?: number;
           ocr_failed_pages?: number;
+          text_block_count?: number;
+          image_count?: number;
+          skipped_image_count?: number;
         };
       };
 
@@ -189,7 +192,8 @@ export function IssueList() {
               `${result.result.page_count ?? 0} ta bet ajratildi. ` +
               `${result.result.text_pages ?? 0} ta betdan matn olindi. ` +
               `${result.result.ocr_pages ?? 0} ta betda OCR ishladi. ` +
-              `${result.result.ocr_failed_pages ?? 0} ta betda OCR natija bermadi.`
+              `${result.result.text_block_count ?? 0} ta matn bloki va ` +
+              `${result.result.image_count ?? 0} ta rasm ajratildi.`
             )
           : (
               result.detail ??

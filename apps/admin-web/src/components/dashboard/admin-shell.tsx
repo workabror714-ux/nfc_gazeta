@@ -26,6 +26,11 @@ const navigation = [
     icon: "▤",
   },
   {
+    href: "/maqolalar",
+    label: "Maqolalar",
+    icon: "▧",
+  },
+  {
     href: "/analitika",
     label: "Analitika",
     icon: "↗",

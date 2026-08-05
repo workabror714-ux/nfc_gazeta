@@ -8,6 +8,7 @@ import {
   const protectedRoutes = [
     "/dashboard",
     "/nashrlar",
+    "/maqolalar",
     "/analitika",
     "/tizim",
   ];
@@ -52,6 +53,7 @@ import {
       "/login",
       "/dashboard/:path*",
       "/nashrlar/:path*",
+      "/maqolalar/:path*",
       "/analitika/:path*",
       "/tizim/:path*",
     ],
