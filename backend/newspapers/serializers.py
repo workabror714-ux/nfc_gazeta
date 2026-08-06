@@ -927,3 +927,232 @@ class ArticleUpdateSerializer(
             )
 
         return attrs
+    
+
+class PublicPageSerializer(
+    serializers.ModelSerializer
+):
+    class Meta:
+        model = Page
+        fields = (
+            "id",
+            "page_number",
+            "page_image",
+            "final_text",
+            "audio",
+        )
+        read_only_fields = fields
+
+
+class PublicArticleCardSerializer(
+    serializers.ModelSerializer
+):
+    category = CategoryOptionSerializer(
+        read_only=True,
+    )
+
+    issue_number = serializers.IntegerField(
+        source="issue.issue_number",
+        read_only=True,
+    )
+
+    issue_year = serializers.IntegerField(
+        source="issue.year",
+        read_only=True,
+    )
+
+    issue_nfc_slug = serializers.CharField(
+        source="issue.nfc_slug",
+        read_only=True,
+    )
+
+    newspaper_name = serializers.CharField(
+        source="issue.newspaper.name",
+        read_only=True,
+    )
+
+    main_image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Article
+        fields = (
+            "id",
+            "issue_id",
+            "issue_number",
+            "issue_year",
+            "issue_nfc_slug",
+            "newspaper_name",
+            "category",
+            "title",
+            "slug",
+            "summary",
+            "author",
+            "main_image",
+            "reading_order",
+            "is_featured",
+            "published_at",
+        )
+        read_only_fields = fields
+
+    def get_main_image(
+        self,
+        obj: Article,
+    ) -> str | None:
+        image_file = None
+
+        if (
+            obj.source_image
+            and obj.source_image.image
+        ):
+            image_file = (
+                obj.source_image.image
+            )
+
+        elif obj.image:
+            image_file = obj.image
+
+        if not image_file:
+            return None
+
+        try:
+            image_url = image_file.url
+        except ValueError:
+            return None
+
+        request = self.context.get(
+            "request"
+        )
+
+        if request:
+            return request.build_absolute_uri(
+                image_url
+            )
+
+        return image_url
+
+
+class PublicArticleDetailSerializer(
+    PublicArticleCardSerializer
+):
+    class Meta(
+        PublicArticleCardSerializer.Meta
+    ):
+        fields = (
+            PublicArticleCardSerializer
+            .Meta
+            .fields
+            + (
+                "content",
+                "audio",
+            )
+        )
+
+
+class PublicIssueListSerializer(
+    serializers.ModelSerializer
+):
+    newspaper_name = serializers.CharField(
+        source="newspaper.name",
+        read_only=True,
+    )
+
+    article_count = serializers.SerializerMethodField()
+    nfc_path = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Issue
+        fields = (
+            "id",
+            "newspaper_name",
+            "issue_number",
+            "year",
+            "publication_date",
+            "title",
+            "slug",
+            "nfc_slug",
+            "nfc_path",
+            "description",
+            "cover_image",
+            "page_count",
+            "article_count",
+            "published_at",
+        )
+        read_only_fields = fields
+
+    def get_article_count(
+        self,
+        obj: Issue,
+    ) -> int:
+        return obj.articles.filter(
+            is_published=True
+        ).count()
+
+    def get_nfc_path(
+        self,
+        obj: Issue,
+    ) -> str:
+        return f"/n/{obj.nfc_slug}"
+
+
+class PublicIssueDetailSerializer(
+    PublicIssueListSerializer
+):
+    pages = serializers.SerializerMethodField()
+    articles = serializers.SerializerMethodField()
+
+    class Meta(
+        PublicIssueListSerializer.Meta
+    ):
+        fields = (
+            PublicIssueListSerializer
+            .Meta
+            .fields
+            + (
+                "original_pdf",
+                "pages",
+                "articles",
+            )
+        )
+
+    def get_pages(
+        self,
+        obj: Issue,
+    ):
+        pages = (
+            obj.pages.filter(
+                is_approved=True
+            )
+            .order_by("page_number")
+        )
+
+        return PublicPageSerializer(
+            pages,
+            many=True,
+            context=self.context,
+        ).data
+
+    def get_articles(
+        self,
+        obj: Issue,
+    ):
+        articles = (
+            obj.articles.filter(
+                is_published=True
+            )
+            .select_related(
+                "category",
+                "source_image",
+                "issue",
+                "issue__newspaper",
+            )
+            .order_by(
+                "-is_featured",
+                "reading_order",
+            )
+        )
+
+        return PublicArticleCardSerializer(
+            articles,
+            many=True,
+            context=self.context,
+        ).data

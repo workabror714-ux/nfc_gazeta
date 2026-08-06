@@ -2501,3 +2501,25 @@ button {
     width: 100%;
   }
 }
+
+.issue-publication-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 22px;
+}
+
+.issue-publication-controls p {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  .issue-publication-controls {
+    display: grid;
+  }
+
+  .issue-publication-controls button {
+    width: 100%;
+  }
+}

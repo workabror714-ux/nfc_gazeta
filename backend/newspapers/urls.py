@@ -1,6 +1,8 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from analytics_app.views import AdminAnalyticsOverviewView
+
 from .views import (
     AdminIssueViewSet,
     AdminNewspaperListView,
@@ -39,6 +41,11 @@ router.register(
 )
 
 urlpatterns = [
+    path(
+        "analytics/overview/",
+        AdminAnalyticsOverviewView.as_view(),
+        name="admin-analytics-overview",
+    ),
     path(
         "newspapers/",
         AdminNewspaperListView.as_view(),
