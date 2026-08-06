@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --railway-navy: #003366;
+  --railway-navy-dark: #002244;
+  --railway-gold: #d4af37;
+  --railway-bg: #f4f6f9;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+* {
+  box-sizing: border-box;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  min-width: 320px;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  margin: 0;
+  background: var(--railway-bg);
+  color: #17212b;
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.font-serif {
+  font-family:
+    Georgia,
+    "Times New Roman",
+    serif;
+}
+
+html.font-size-small {
+  font-size: 14px;
+}
+
+html.font-size-medium {
+  font-size: 16px;
+}
+
+html.font-size-large {
+  font-size: 19px;
+}
+
+html.theme-grayscale {
+  filter: grayscale(100%);
+}
+
+html.theme-contrast {
+  background: #000;
+  filter: contrast(125%);
+}
+
+html.theme-contrast body {
+  background: #000 !important;
+  color: #fff !important;
+}
+
+html.theme-contrast .bg-white,
+html.theme-contrast .bg-slate-50,
+html.theme-contrast .bg-slate-100,
+html.theme-contrast .bg-\[\#F4F6F9\] {
+  background-color: #101010 !important;
+  color: #fff !important;
+}
+
+html.theme-contrast .text-slate-900,
+html.theme-contrast .text-slate-800,
+html.theme-contrast .text-slate-700,
+html.theme-contrast .text-slate-600,
+html.theme-contrast .text-slate-500 {
+  color: #f3f4f6 !important;
+}
+
+html.theme-contrast .border-slate-100,
+html.theme-contrast .border-slate-200,
+html.theme-contrast .border-slate-300 {
+  border-color: #4b5563 !important;
+}
+
+html.theme-contrast a {
+  text-decoration-thickness: 2px;
+}
+
+.custom-scrollbar {
+  scrollbar-color: #003366 #dbe3ea;
+  scrollbar-width: thin;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #dbe3ea;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #003366;
+}
+
+.issue-reader:fullscreen {
+  background: #e2e8f0;
+}
+
+.issue-reader:fullscreen > div:nth-child(2) {
+  min-height: calc(100vh - 118px);
+}
+
+.issue-reader:fullscreen > div:nth-child(2) > div:last-child > div {
+  height: calc(100vh - 118px) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }

@@ -101,6 +101,14 @@ class AdminIssueViewSet(viewsets.ModelViewSet):
                 IsEditorOrSuperAdmin,
             ]
 
+        elif self.action in {
+            "publish",
+            "unpublish",
+        }:
+            permission_classes = [
+                IsReviewerOrSuperAdmin,
+            ]
+
         elif self.action == "destroy":
             permission_classes = [
                 IsSuperAdmin,
@@ -115,7 +123,7 @@ class AdminIssueViewSet(viewsets.ModelViewSet):
             permission()
             for permission in permission_classes
         ]
-
+    
     def get_serializer_class(self):
         if self.action == "list":
             return IssueListSerializer
@@ -316,6 +324,141 @@ class AdminIssueViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK,
         )
 
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="publish",
+    )
+    def publish(
+        self,
+        request: Request,
+        pk=None,
+    ) -> Response:
+        issue = self.get_object()
+
+        if not issue.original_pdf:
+            return Response(
+                {
+                    "detail": (
+                        "Original PDF yuklanmagan "
+                        "nashrni ommaga chiqarib bo‘lmaydi."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        pages = issue.pages.all()
+
+        if not pages.exists():
+            return Response(
+                {
+                    "detail": (
+                        "Nashr betlari hali "
+                        "ajratilmagan."
+                    )
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        unapproved_pages = pages.filter(
+            is_approved=False
+        ).count()
+
+        if unapproved_pages > 0:
+            return Response(
+                {
+                    "detail": (
+                        f"{unapproved_pages} ta bet "
+                        "hali tasdiqlanmagan."
+                    ),
+                    "unapproved_pages": (
+                        unapproved_pages
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        issue.status = (
+            Issue.Status.PUBLISHED
+        )
+        issue.is_public = True
+        issue.approved_by = request.user
+        issue.published_at = timezone.now()
+        issue.processing_error = ""
+
+        issue.save(
+            update_fields=[
+                "status",
+                "is_public",
+                "approved_by",
+                "published_at",
+                "processing_error",
+                "updated_at",
+            ]
+        )
+
+        serializer = IssueDetailSerializer(
+            issue,
+            context={
+                "request": request,
+            },
+        )
+
+        return Response(
+            {
+                "detail": (
+                    "Gazeta nashri ommaviy "
+                    "saytga chiqarildi."
+                ),
+                "issue": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
+
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path="unpublish",
+    )
+    def unpublish(
+        self,
+        request: Request,
+        pk=None,
+    ) -> Response:
+        issue = self.get_object()
+
+        issue.status = Issue.Status.REVIEW
+        issue.is_public = False
+        issue.published_at = None
+        issue.approved_by = None
+
+        issue.save(
+            update_fields=[
+                "status",
+                "is_public",
+                "published_at",
+                "approved_by",
+                "updated_at",
+            ]
+        )
+
+        serializer = IssueDetailSerializer(
+            issue,
+            context={
+                "request": request,
+            },
+        )
+
+        return Response(
+            {
+                "detail": (
+                    "Gazeta nashri ommaviy "
+                    "saytdan olib tashlandi."
+                ),
+                "issue": serializer.data,
+            },
+            status=status.HTTP_200_OK,
+        )
 
 class AdminPageViewSet(
     mixins.RetrieveModelMixin,

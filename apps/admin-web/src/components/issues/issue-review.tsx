@@ -8,6 +8,8 @@ import {
 } from "react";
 import Link from "next/link";
 
+import { IssuePublicationControls } from "@/components/issues/issue-publication-controls";
+
 import { getApiErrorMessage } from "@/lib/auth";
 import type {
   IssueDetail,
@@ -247,6 +249,11 @@ export function IssueReview({
                 NFC: /n/{issue.nfc_slug}
               </code>
             </div>
+
+            <IssuePublicationControls
+              issue={issue}
+              onIssueUpdated={setIssue}
+            />
           </div>
         </article>
       </section>

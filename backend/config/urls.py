@@ -32,6 +32,13 @@ urlpatterns = [
         "api/admin/",
         include("newspapers.urls"),
     ),
+
+    path(
+        "api/public/",
+        include(
+            "newspapers.public_urls"
+        ),
+    ),
 ]
 
 if settings.DEBUG:
